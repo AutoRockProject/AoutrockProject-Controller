@@ -7,9 +7,34 @@ import threading
 # デバウンス閾値（秒）
 DEBOUNCE_THRESHOLD = 0.02  # 20 ms
 
-
+# (con_name, code) -> last_press_timestamp (float, seconds since epoch)
+last_press_times = {}
+last_press_lock = threading.Lock()
 
 print("コントローラーの入力を待っています... (Ctrl+C で終了)")
+
+def is_debounced(con_name: str, code: str, event_ts: float) -> bool:
+    """
+    指定の (デバイス名, ボタンコード) に対して、
+    最後の押下時刻との差が閾値未満なら True（無効化＝デバウンス判定）。
+    スレッドセーフに last_press_times を参照/更新する。
+    """
+    key = (con_name, code)
+    with last_press_lock:
+        last = last_press_times.get(key)
+        if last is None:
+            # 初回なので無効化しない（処理する）
+            last_press_times[key] = event_ts
+            return False
+        # 前回との差分
+        delta = event_ts - last
+        if delta < DEBOUNCE_THRESHOLD:
+            # 閾値未満 → デバウンス（無効化）
+            return True
+        else:
+            # 十分時間が経っている → 有効（時刻を更新）
+            last_press_times[key] = event_ts
+            return False
 
 def listen_to_controller(pad, con_name):
     """特定のコントローラを常時監視するスレッド関数"""

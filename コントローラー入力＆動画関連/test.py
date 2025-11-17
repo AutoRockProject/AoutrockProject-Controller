@@ -5,7 +5,7 @@ import threading
 
 
 # デバウンス閾値（秒）
-DEBOUNCE_THRESHOLD = 0.02  # 20 ms
+DEBOUNCE_THRESHOLD = 0.1  # 20 ms
 
 # (con_name, code) -> last_press_timestamp (float, seconds since epoch)
 last_press_times = {}
@@ -50,28 +50,33 @@ def listen_to_controller(pad, con_name):
             for event in events:
 
                 # if (event.code == "ABS_Z")((event.state  == 1) or (event.state == -1)):
-                #     ts = datetime.datetime.fromtimestamp(event.timestamp)
+                #     
                 #     print(
                 #         f"[{con_name}] "
                 #         f"Timestamp: {ts.strftime('%Y-%m-%d %H:%M:%S.%f')}, "
                 #         f"Code: {event.code}, State: {event.state}"
                 #     )
+                
+                ts = datetime.datetime.fromtimestamp(event.timestamp)
+                # デバウンス用は float 秒
+                event_ts = event.timestamp
+                
                 #条件式：Stateが３７以下かつRZボタンかつ直前のStateより現在のほうが押されているならば
-                if (isRZpushing == False) and (event.code == "ABS_RZ") and (event.state > RZBeforeState):
+                if (isRZpushing == False) and (event.code == "ABS_RZ") and (event.state > RZBeforeState) and (is_debounced(con_name, event.code, event_ts) == False):
                     isRZpushing = True
                     RZBeforeState = event.state
 
-                    ts = datetime.datetime.fromtimestamp(event.timestamp)
+                    
                     print(
                         f"[{con_name}] "
                         f"Timestamp: {ts.strftime('%Y-%m-%d %H:%M:%S.%f')}, "
                         f"Code: {event.code}, State: {event.state}"
                     )
-                elif (isZpushing == False) and (event.code == "ABS_Z") and (event.state > ZBeforeState):
+                elif (isZpushing == False) and (event.code == "ABS_Z") and (event.state > ZBeforeState) and (is_debounced(con_name, event.code, event_ts) == False):
                     isZpushing = True
                     ZBeforeState = event.state
 
-                    ts = datetime.datetime.fromtimestamp(event.timestamp)
+                    
                     print(
                         f"[{con_name}] "
                         f"Timestamp: {ts.strftime('%Y-%m-%d %H:%M:%S.%f')}, "
@@ -82,13 +87,13 @@ def listen_to_controller(pad, con_name):
                     
                     print("RZリセット")
                     isRZpushing = False
-                elif (event.state == 37) and (event.code == "ABS_Z"):
+                elif (event.state <= 37) and (event.code == "ABS_Z"):
                     ZBeforeState = event.state
 
                     print("Zリセット")
                     isZpushing = False
                 elif event.state in (-1,1):
-                    ts = datetime.datetime.fromtimestamp(event.timestamp)
+                    
                     print(
                         f"[{con_name}] "
                         f"Timestamp: {ts.strftime('%Y-%m-%d %H:%M:%S.%f')}, "

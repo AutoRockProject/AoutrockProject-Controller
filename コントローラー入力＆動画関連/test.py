@@ -7,6 +7,31 @@ import threading
 # デバウンス閾値（秒）
 DEBOUNCE_THRESHOLD = 0.1  # 20 ms
 
+BUTTONNAME = {
+    "BTN_WEST": "X",
+    "BTN_NORTH": "Y",
+    "BTN_EAST": "B",
+    "BTN_SOUTH": "A",
+    "BTN_THUMBR": "RStick",
+    "BTN_THUMBL": "LStick",
+    "BTN_TR": "RB",
+    "BTN_TL": "LB",
+    "ABS_RZ": "RT",
+    "ABS_Z": "LT",
+    "BTN_SELECT": "SELECT",
+    "BTN_START": "START",
+    "UpArrow": "UpArrow",
+    "DownArrow": "DownArrow",
+    "LeftArrow": "LeftArrow",
+    "RightArrow": "RightArrow",
+    "UpRight": "UpRight",
+    "UpLeft": "UpLeft",
+    "DownRight": "DownRight",
+    "DownLeft": "DownLeft",
+    
+    
+}
+
 # (con_name, code) -> last_press_timestamp (float, seconds since epoch)
 last_press_times = {}
 last_press_lock = threading.Lock()
@@ -42,6 +67,10 @@ def listen_to_controller(pad, con_name):
     ZBeforeState = 0
     isRZpushing = False
     isZpushing = False
+    
+    #十字ボタンの状態を保持
+    hat_x = 0  # -1: 左, 0: 中立, 1: 右
+    hat_y = 0  # -1: 上, 0: 中立, 1: 下
 
     print(f"[スレッド開始] {con_name}: {pad.name}")
     while True:
@@ -60,6 +89,41 @@ def listen_to_controller(pad, con_name):
                 ts = datetime.datetime.fromtimestamp(event.timestamp)
                 # デバウンス用は float 秒
                 event_ts = event.timestamp
+                
+                # ① まず HAT の状態更新
+                if event.code == "ABS_HAT0X":
+                    hat_x = event.state   # -1, 0, 1
+                elif event.code == "ABS_HAT0Y":
+                    hat_y = event.state   # -1, 0, 1
+
+                # ② HAT 関連のイベントなら、今の (hat_x, hat_y) から方向を決めて出力
+                if event.code in ("ABS_HAT0X", "ABS_HAT0Y"):
+                    dir_name = None
+
+                    if hat_x == 0 and hat_y == 0:
+                         break
+                    if hat_x == 0:
+                        dir_name = "UpArrow" if hat_y == -1 else "DownArrow"
+                    elif hat_y == 0:
+                        dir_name = "LeftArrow" if hat_x == -1 else "RightArrow"
+                    else:
+                        # ここが斜め
+                        if hat_x == 1 and hat_y == -1:
+                            dir_name = "UpRight"
+                        elif hat_x == -1 and hat_y == -1:
+                            dir_name = "UpLeft"
+                        elif hat_x == 1 and hat_y == 1:
+                            dir_name = "DownRight"
+                        elif hat_x == -1 and hat_y == 1:
+                            dir_name = "DownLeft"
+
+                    print(
+                        f"[{con_name}] "
+                        f"Timestamp: {ts.strftime('%Y-%m-%d %H:%M:%S.%f')}, "
+                        f"Code: {BUTTONNAME[dir_name]}, State: (x={hat_x}, y={hat_y})"
+                    )
+                    # HATイベントはここで処理完了。他の if/elif に行かないように continue
+                    continue
                 
                 #条件式：Stateが３７以下かつRZボタンかつ直前のStateより現在のほうが押されているならば
                 if (isRZpushing == False) and (event.code == "ABS_RZ") and (event.state > RZBeforeState) and (is_debounced(con_name, event.code, event_ts) == False):
@@ -85,19 +149,27 @@ def listen_to_controller(pad, con_name):
                 elif (event.state <= 37) and (event.code == "ABS_RZ"):
                     RZBeforeState = event.state
                     
-                    print("RZリセット")
+                    # print("RZリセット")
                     isRZpushing = False
                 elif (event.state <= 37) and (event.code == "ABS_Z"):
                     ZBeforeState = event.state
 
-                    print("Zリセット")
+                    # print("Zリセット")
                     isZpushing = False
-                elif event.state in (-1,1):
+                    
+                # elif event.state == -1:
+                    
+                #     print(
+                #         f"[{con_name}] "
+                #         f"Timestamp: {ts.strftime('%Y-%m-%d %H:%M:%S.%f')}, "
+                #         f"Code: {BUTTONNAME[f'-{event.code}']}, State: {event.state}"
+                #     )
+                elif event.state == 1:
                     
                     print(
                         f"[{con_name}] "
                         f"Timestamp: {ts.strftime('%Y-%m-%d %H:%M:%S.%f')}, "
-                        f"Code: {event.code}, State: {event.state}"
+                        f"Code: {BUTTONNAME[event.code]}, State: {event.state}"
                     )
 
 

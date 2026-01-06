@@ -34,10 +34,11 @@ BUTTONNAME = {
     "DownArrow": "DownArrow",
     "LeftArrow": "LeftArrow",
     "RightArrow": "RightArrow",
-    "UpRight": "UpRight",
-    "UpLeft": "UpLeft",
-    "DownRight": "DownRight",
-    "DownLeft": "DownLeft",
+    "Center": "Center",
+    "UpRight": "UpRightArrow",
+    "UpLeft": "UpLeftArrow",
+    "DownRight": "DownRightArrow",
+    "DownLeft": "DownLeftArrow",
     
     
 }
@@ -94,7 +95,7 @@ def direction_from_xy(x: int, y: int) -> str | None:
 
     # 多くのデバイスで y>0 が「下」
     if ay >= DEADZONE:
-        dir_y = "Down" if y > 0 else "Up"
+        dir_y = "Down" if y < 0 else "Up"
 
     # 斜め判定：両方ある場合のみ
     if dir_x and dir_y:
@@ -115,8 +116,8 @@ def printArrows() :
     dir_name = None
 
     if hat_x == 0 and hat_y == 0:
-        return
-    if hat_x == 0:
+        dir_name = "Center"
+    elif hat_x == 0:
         dir_name = "UpArrow" if hat_y == -1 else "DownArrow"
     elif hat_y == 0:
         dir_name = "LeftArrow" if hat_x == -1 else "RightArrow"
@@ -185,7 +186,7 @@ def listen_to_controller(pad, con_name):
                     StickStatecode = direction_from_xy(Rstick_x,Rstick_y)
                     
                     if StickStatecode != last_printed["RightStick"]:
-                        
+                        print(StickStatecode)
                         # ずっと同じ方向を連打表示しない（必要なら外してOK）
                         if StickStatecode is None:
                             print(

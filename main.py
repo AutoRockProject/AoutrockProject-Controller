@@ -2,6 +2,8 @@ import inputs
 import time
 import datetime
 import threading
+import csv
+import os
 
 
 # デバウンス閾値（秒）
@@ -16,6 +18,16 @@ AXIS_MAP = {
     # "ABS_RX": ("RightStick", "x"),
     # "ABS_RY": ("RightStick", "y"),
 }
+
+FILE = "output.csv"
+# 先にカラム（列）を固定
+FIELDNAMES = [
+    "Timestamp", "X", "Y", "B", "A", "RB", "LB", "RStick", "LStick", "SELECT", "START",
+    "CenterArrow", "UpArrow", "DownArrow", "LeftArrow", "RightArrow", "UpRightArrow", "UpLeftArrow", "DownRightArrow", "DownLeftArrow", 
+    "Center", "Up", "Down", "Right", "Left", "UpRight", "UpLeft", "DownRight", "DownLeft",
+    ]  
+ROWORIZIN = {col: "" for col in FIELDNAMES}  # まず空で作る
+row = {}
 
 BUTTONNAME = {
     "BTN_WEST": "X",
@@ -34,13 +46,20 @@ BUTTONNAME = {
     "DownArrow": "DownArrow",
     "LeftArrow": "LeftArrow",
     "RightArrow": "RightArrow",
-    "Center": "Center",
-    "UpRight": "UpRightArrow",
-    "UpLeft": "UpLeftArrow",
-    "DownRight": "DownRightArrow",
-    "DownLeft": "DownLeftArrow",
-    
-    
+    "CenterArrow": "CenterArrow",
+    "UpRightArrow": "UpRightArrow",
+    "UpLeftArrow": "UpLeftArrow",
+    "DownRightArrow": "DownRightArrow",
+    "DownLeftArrow": "DownLeftArrow",
+    "Center":"Center",
+    "Up":"Up",
+    "Down":"Down",
+    "Right":"Right",
+    "Left":"Left",
+    "UpRight":"UpRight",
+    "UpLeft":"UpLeft",
+    "DownRight":"DownRight",
+    "DownLeft":"DownLeft",
 }
 
 # (con_name, code) -> last_press_timestamp (float, seconds since epoch)
@@ -81,7 +100,7 @@ def direction_from_xy(x: int, y: int) -> str | None:
     # デッドゾーン処理
     ax, ay = abs(x), abs(y)
     if ax < DEADZONE and ay < DEADZONE:
-        return None
+        return "Center"
 
     # 斜めも含めて判定したいので、どちらが優勢かを見る
     # ay が大きいほど上下、ax が大きいほど左右
@@ -116,7 +135,7 @@ def printArrows() :
     dir_name = None
 
     if hat_x == 0 and hat_y == 0:
-        dir_name = "Center"
+        dir_name = "CenterArrow"
     elif hat_x == 0:
         dir_name = "UpArrow" if hat_y == -1 else "DownArrow"
     elif hat_y == 0:
@@ -124,13 +143,13 @@ def printArrows() :
     else:
         # ここが斜め
         if hat_x == 1 and hat_y == -1:
-            dir_name = "UpRight"
+            dir_name = "UpRightArrow"
         elif hat_x == -1 and hat_y == -1:
-            dir_name = "UpLeft"
+            dir_name = "UpLeftArrow"
         elif hat_x == 1 and hat_y == 1:
-            dir_name = "DownRight"
+            dir_name = "DownRightArrow"
         elif hat_x == -1 and hat_y == 1:
-            dir_name = "DownLeft"
+            dir_name = "DownLeftArrow"
 
     print(
         f"[{con_name}] "
@@ -185,21 +204,23 @@ def listen_to_controller(pad, con_name):
                 if event.code == "ABS_X" or event.code == "ABS_Y":
                     StickStatecode = direction_from_xy(Rstick_x,Rstick_y)
                     
+                    #前回と同じコードが出力されないかを審査
                     if StickStatecode != last_printed["RightStick"]:
-                        print(StickStatecode)
-                        # ずっと同じ方向を連打表示しない（必要なら外してOK）
-                        if StickStatecode is None:
-                            print(
-                            f"[{con_name}] "
-                            f"Timestamp: {ts.strftime('%Y-%m-%d %H:%M:%S.%f')}, "
-                            f"Code: Center, State: (x={Rstick_x}, y={Rstick_y})"
-                            )
-                        else:
-                            print(
-                            f"[{con_name}] "
-                            f"Timestamp: {ts.strftime('%Y-%m-%d %H:%M:%S.%f')}, "
-                            f"Code: {StickStatecode}, State: (x={Rstick_x}, y={Rstick_y})"
-                            )
+                        dircode = BUTTONNAME[StickStatecode]
+                        # print(StickStatecode)
+
+                        # if StickStatecode is None:
+                        #     print(
+                        #     f"[{con_name}] "
+                        #     f"Timestamp: {ts.strftime('%Y-%m-%d %H:%M:%S.%f')}, "
+                        #     f"Code: Center, State: (x={Rstick_x}, y={Rstick_y})"
+                        #     )
+                        # else:
+                        print(
+                        f"[{con_name}] "
+                        f"Timestamp: {ts.strftime('%Y-%m-%d %H:%M:%S.%f')}, "
+                        f"Code: {dircode}, State: (x={Rstick_x}, y={Rstick_y})"
+                        )
                         
                         last_printed["RightStick"] = StickStatecode
                             
@@ -219,37 +240,37 @@ def listen_to_controller(pad, con_name):
                     continue
 
                 
-                #条件式：Stateが３７以下かつRZボタンかつ直前のStateより現在のほうが押されているならば
-                if (isRZpushing == False) and (event.code == "ABS_RZ") and (event.state > RZBeforeState) and (is_debounced(con_name, event.code, event_ts) == False):
-                    isRZpushing = True
-                    RZBeforeState = event.state
+                # #条件式：Stateが３７以下かつRZボタンかつ直前のStateより現在のほうが押されているならば
+                # if (isRZpushing == False) and (event.code == "ABS_RZ") and (event.state > RZBeforeState) and (is_debounced(con_name, event.code, event_ts) == False):
+                #     isRZpushing = True
+                #     RZBeforeState = event.state
 
                     
-                    print(
-                        f"[{con_name}] "
-                        f"Timestamp: {ts.strftime('%Y-%m-%d %H:%M:%S.%f')}, "
-                        f"Code: {event.code}, State: {event.state}"
-                    )
-                elif (isZpushing == False) and (event.code == "ABS_Z") and (event.state > ZBeforeState) and (is_debounced(con_name, event.code, event_ts) == False):
-                    isZpushing = True
-                    ZBeforeState = event.state
+                #     print(
+                #         f"[{con_name}] "
+                #         f"Timestamp: {ts.strftime('%Y-%m-%d %H:%M:%S.%f')}, "
+                #         f"Code: {event.code}, State: {event.state}"
+                #     )
+                # elif (isZpushing == False) and (event.code == "ABS_Z") and (event.state > ZBeforeState) and (is_debounced(con_name, event.code, event_ts) == False):
+                #     isZpushing = True
+                #     ZBeforeState = event.state
 
                     
-                    print(
-                        f"[{con_name}] "
-                        f"Timestamp: {ts.strftime('%Y-%m-%d %H:%M:%S.%f')}, "
-                        f"Code: {event.code}, State: {event.state}"
-                    )
-                elif (event.state <= 37) and (event.code == "ABS_RZ"):
-                    RZBeforeState = event.state
+                #     print(
+                #         f"[{con_name}] "
+                #         f"Timestamp: {ts.strftime('%Y-%m-%d %H:%M:%S.%f')}, "
+                #         f"Code: {event.code}, State: {event.state}"
+                #     )
+                # elif (event.state <= 37) and (event.code == "ABS_RZ"):
+                #     RZBeforeState = event.state
                     
-                    # print("RZリセット")
-                    isRZpushing = False
-                elif (event.state <= 37) and (event.code == "ABS_Z"):
-                    ZBeforeState = event.state
+                #     # print("RZリセット")
+                #     isRZpushing = False
+                # elif (event.state <= 37) and (event.code == "ABS_Z"):
+                #     ZBeforeState = event.state
 
-                    # print("Zリセット")
-                    isZpushing = False
+                #     # print("Zリセット")
+                #     isZpushing = False
                     
                 # elif event.state == -1:
                     
@@ -274,7 +295,7 @@ def listen_to_controller(pad, con_name):
             break
         except Exception as e:
             print(f"{con_name} ({pad.name}) 読み取りエラー: {e}")
-            time.sleep(0.1)
+            # time.sleep(0.1)
 
 try:
     gamepads = inputs.devices.gamepads

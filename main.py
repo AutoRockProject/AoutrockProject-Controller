@@ -160,7 +160,7 @@ def append_row(row: dict):
         
 
 
-
+#git revert コミットのハッシュ値
 def listen_to_controller(pad, con_name):
     """特定のコントローラを常時監視するスレッド関数"""
     global hat_x, hat_y, ts, event_ts, ROWORIZIN

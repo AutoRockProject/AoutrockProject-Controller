@@ -62,34 +62,6 @@ BUTTONNAME = {
     "DownLeft":"DownLeft",
 }
 
-# (con_name, code) -> last_press_timestamp (float, seconds since epoch)
-last_press_times = {}
-last_press_lock = threading.Lock()
-
-print("コントローラーの入力を待っています... (Ctrl+C で終了)")
-
-def is_debounced(con_name: str, code: str, event_ts: float) -> bool:
-    """
-    指定の (デバイス名, ボタンコード) に対して、
-    最後の押下時刻との差が閾値未満なら True（無効化＝デバウンス判定）。
-    スレッドセーフに last_press_times を参照/更新する。
-    """
-    key = (con_name, code)
-    with last_press_lock:
-        last = last_press_times.get(key)
-        if last is None:
-            # 初回なので無効化しない（処理する）
-            last_press_times[key] = event_ts
-            return False
-        # 前回との差分
-        delta = event_ts - last
-        if delta < DEBOUNCE_THRESHOLD:
-            # 閾値未満 → デバウンス（無効化）
-            return True
-        else:
-            # 十分時間が経っている → 有効（時刻を更新）
-            last_press_times[key] = event_ts
-            return False
         
 def direction_from_xy(x: int, y: int) -> str | None:
     """
@@ -151,20 +123,13 @@ def printArrows() :
         elif hat_x == -1 and hat_y == 1:
             dir_name = "DownLeftArrow"
 
-    print(
-        f"[{con_name}] "
-        f"Timestamp: {ts.strftime('%Y-%m-%d %H:%M:%S.%f')}, "
-        f"Code: {BUTTONNAME[dir_name]}, State: (x={hat_x}, y={hat_y})"
-    )
+    return dir_name
+
 
 
 
 def listen_to_controller(pad, con_name):
     """特定のコントローラを常時監視するスレッド関数"""
-    RZBeforeState = 0
-    ZBeforeState = 0
-    isRZpushing = False
-    isZpushing = False
     
     #十字ボタンの状態を保持
     global hat_x, hat_y, ts, event_ts
@@ -180,15 +145,9 @@ def listen_to_controller(pad, con_name):
     while True:
         try:
             events = pad.read()  # そのコントローラ専用の入力を取得
+            #csvに入れる行の値をリセット
+            row.update(ROWORIZIN)
             for event in events:
-
-                # if (event.code == "ABS_Z")((event.state  == 1) or (event.state == -1)):
-                #     
-                #     print(
-                #         f"[{con_name}] "
-                #         f"Timestamp: {ts.strftime('%Y-%m-%d %H:%M:%S.%f')}, "
-                #         f"Code: {event.code}, State: {event.state}"
-                #     )
                 
                 ts = datetime.datetime.fromtimestamp(event.timestamp)
                 # デバウンス用は float 秒
@@ -207,15 +166,7 @@ def listen_to_controller(pad, con_name):
                     #前回と同じコードが出力されないかを審査
                     if StickStatecode != last_printed["RightStick"]:
                         dircode = BUTTONNAME[StickStatecode]
-                        # print(StickStatecode)
 
-                        # if StickStatecode is None:
-                        #     print(
-                        #     f"[{con_name}] "
-                        #     f"Timestamp: {ts.strftime('%Y-%m-%d %H:%M:%S.%f')}, "
-                        #     f"Code: Center, State: (x={Rstick_x}, y={Rstick_y})"
-                        #     )
-                        # else:
                         print(
                         f"[{con_name}] "
                         f"Timestamp: {ts.strftime('%Y-%m-%d %H:%M:%S.%f')}, "
@@ -223,6 +174,7 @@ def listen_to_controller(pad, con_name):
                         )
                         
                         last_printed["RightStick"] = StickStatecode
+                        continue
                             
 
                     
@@ -235,59 +187,29 @@ def listen_to_controller(pad, con_name):
 
                 # ② HAT 関連のイベントなら、今の (hat_x, hat_y) から方向を決めて出力
                 if event.code in ("ABS_HAT0X", "ABS_HAT0Y"):
-                    printArrows()
+                    Arrowdir = printArrows()
+                    print(
+                    f"[{con_name}] "
+                    f"Timestamp: {ts.strftime('%Y-%m-%d %H:%M:%S.%f')}, "
+                    f"Code: {BUTTONNAME[Arrowdir]}, State: (x={hat_x}, y={hat_y})"
+                    )   
                     # HATイベントはここで処理完了。他の if/elif に行かないように continue
                     continue
 
                 
-                # #条件式：Stateが３７以下かつRZボタンかつ直前のStateより現在のほうが押されているならば
-                # if (isRZpushing == False) and (event.code == "ABS_RZ") and (event.state > RZBeforeState) and (is_debounced(con_name, event.code, event_ts) == False):
-                #     isRZpushing = True
-                #     RZBeforeState = event.state
-
+                elif event.state == 1 or event.state == 0 :
                     
-                #     print(
-                #         f"[{con_name}] "
-                #         f"Timestamp: {ts.strftime('%Y-%m-%d %H:%M:%S.%f')}, "
-                #         f"Code: {event.code}, State: {event.state}"
-                #     )
-                # elif (isZpushing == False) and (event.code == "ABS_Z") and (event.state > ZBeforeState) and (is_debounced(con_name, event.code, event_ts) == False):
-                #     isZpushing = True
-                #     ZBeforeState = event.state
-
-                    
-                #     print(
-                #         f"[{con_name}] "
-                #         f"Timestamp: {ts.strftime('%Y-%m-%d %H:%M:%S.%f')}, "
-                #         f"Code: {event.code}, State: {event.state}"
-                #     )
-                # elif (event.state <= 37) and (event.code == "ABS_RZ"):
-                #     RZBeforeState = event.state
-                    
-                #     # print("RZリセット")
-                #     isRZpushing = False
-                # elif (event.state <= 37) and (event.code == "ABS_Z"):
-                #     ZBeforeState = event.state
-
-                #     # print("Zリセット")
-                #     isZpushing = False
-                    
-                # elif event.state == -1:
-                    
-                #     print(
-                #         f"[{con_name}] "
-                #         f"Timestamp: {ts.strftime('%Y-%m-%d %H:%M:%S.%f')}, "
-                #         f"Code: {BUTTONNAME[f'-{event.code}']}, State: {event.state}"
-                #     )
-                elif event.state == 1:
-                    
+                    # print(
+                    #     f"[{con_name}] "
+                    #     f"Timestamp: {ts.strftime('%Y-%m-%d %H:%M:%S.%f')}, "
+                    #     f"Code: {BUTTONNAME[event.code]}, State: {event.state}"
+                    # )
                     print(
-                        f"[{con_name}] "
                         f"Timestamp: {ts.strftime('%Y-%m-%d %H:%M:%S.%f')}, "
-                        f"Code: {BUTTONNAME[event.code]}, State: {event.state}"
+                        f"Code: {event.code}, State: {event.state}"
                     )
-
-
+                    continue
+            #ここにrowを追加する処理を書く
 
                         
         except inputs.UnpluggedError:

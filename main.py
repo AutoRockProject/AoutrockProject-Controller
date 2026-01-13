@@ -25,7 +25,7 @@ AXIS_MAP = {
 FILE = input() + ".csv"
 # 先にカラム（列）を固定
 FIELDNAMES = [
-    "username", "Timestamp", "X", "Y", "B", "A", "RB", "LB", "RStick", "LStick", "SELECT", "START",
+    "username", "Timestamp", "X", "Y", "B", "A", "RB", "LB", "RT", "RStick", "LStick", "SELECT", "START",
     "CenterArrow", "UpArrow", "DownArrow", "LeftArrow", "RightArrow", "UpRightArrow", "UpLeftArrow", "DownRightArrow", "DownLeftArrow", 
     "Center", "Up", "Down", "Right", "Left", "UpRight", "UpLeft", "DownRight", "DownLeft", "StateX", "StateY",
     ]  
@@ -164,6 +164,11 @@ def append_row(row: dict):
 def listen_to_controller(pad, con_name):
     """特定のコントローラを常時監視するスレッド関数"""
     global hat_x, hat_y, ts, event_ts, ROWORIZIN
+
+    #"""特定のコントローラを常時監視するスレッド関数"""
+    LastABS_R = False
+    LastABS_L = False
+
     #各コントローラーに行の辞書データを付与
     row = {}
     row.update(ROWORIZIN)
@@ -238,6 +243,20 @@ def listen_to_controller(pad, con_name):
                     row[BUTTONNAME[Arrowdir]] = 1
                     
                     continue
+                
+
+                #条件式：Stateが３７以下かつRZボタンかつ直前のStateより現在のほうが押されているならば
+                if (event.code == "ABS_RZ") and (LastABS_R == False):
+                    
+
+                elif (event.code == "ABS_Z") and (LastABS_L == False):
+
+                
+                elif (event.code == "ABS_RZ") and (LastABS_R == True):
+                
+
+                elif (event.code == "ABS_Z") and (LastABS_L == True):
+
 
                 #SYN_REPORTは１フレーム内でここまで処理しましたというアラームなので除外
                 elif event.code not in ("SYN_REPORT","ABS_RZ", "ABS_Z") and (event.state == 1 or event.state == 0) :
@@ -247,6 +266,7 @@ def listen_to_controller(pad, con_name):
                     row[BUTTONNAME[event.code]] = event.state
 
                     continue
+
             #ここにrowを追加する処理を書く
             row["Timestamp"] = ts
             append_row(row)

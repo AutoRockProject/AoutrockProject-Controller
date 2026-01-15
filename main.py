@@ -25,7 +25,7 @@ AXIS_MAP = {
 FILE = input() + ".csv"
 # 先にカラム（列）を固定
 FIELDNAMES = [
-    "username", "Timestamp", "X", "Y", "B", "A", "RB", "LB", "RT", "RStick", "LStick", "SELECT", "START",
+    "username", "Timestamp", "X", "Y", "B", "A", "RB", "LB", "RT", "LT", "RStick", "LStick", "SELECT", "START",
     "CenterArrow", "UpArrow", "DownArrow", "LeftArrow", "RightArrow", "UpRightArrow", "UpLeftArrow", "DownRightArrow", "DownLeftArrow", 
     "Center", "Up", "Down", "Right", "Left", "UpRight", "UpLeft", "DownRight", "DownLeft", "StateX", "StateY",
     ]  
@@ -245,17 +245,29 @@ def listen_to_controller(pad, con_name):
                     continue
                 
 
-                #条件式：Stateが３７以下かつRZボタンかつ直前のStateより現在のほうが押されているならば
+                #ABS系のボタンはStateが０１ではないため手打ちで１を入力
                 if (event.code == "ABS_RZ") and (LastABS_R == False):
-                    
+                    print("ABSR-ON")
+                    LastABS_R = True
+                    row[BUTTONNAME[event.code]] = 1
+
 
                 elif (event.code == "ABS_Z") and (LastABS_L == False):
+                    print("ABSL-ON")
+                    LastABS_L = True
+                    row[BUTTONNAME[event.code]] = 1
 
                 
-                elif (event.code == "ABS_RZ") and (LastABS_R == True):
-                
+                elif (event.code == "ABS_RZ") and (event.state == 0):
+                    print("ABSR-OFF")
+                    LastABS_R = False
+                    row[BUTTONNAME[event.code]] = event.state
 
-                elif (event.code == "ABS_Z") and (LastABS_L == True):
+
+                elif (event.code == "ABS_Z") and (event.state == 0):
+                    print("ABSL-OFF")
+                    LastABS_L = False
+                    row[BUTTONNAME[event.code]] = event.state
 
 
                 #SYN_REPORTは１フレーム内でここまで処理しましたというアラームなので除外

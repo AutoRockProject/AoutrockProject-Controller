@@ -25,7 +25,7 @@ AXIS_MAP = {
 FILE = input() + ".csv"
 # 先にカラム（列）を固定
 FIELDNAMES = [
-    "username", "Timestamp", "X", "Y", "B", "A", "RB", "LB", "RT", "LT", "RStick", "LStick", "SELECT", "START",
+    "username", "Timestamp", "X", "Y", "B", "A", "RB", "LB", "RT", "LT","RStick", "LStick", "SELECT", "START",
     "CenterArrow", "UpArrow", "DownArrow", "LeftArrow", "RightArrow", "UpRightArrow", "UpLeftArrow", "DownRightArrow", "DownLeftArrow", 
     "Center", "Up", "Down", "Right", "Left", "UpRight", "UpLeft", "DownRight", "DownLeft", "StateX", "StateY",
     ]  

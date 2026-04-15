@@ -312,6 +312,8 @@ try:
             t = threading.Thread(target=listen_to_controller, args=(pad, con_name), daemon=True)
             t.start()
             threads.append(t)
+        
+        
 
         print("\n--- すべてのコントローラからの入力を監視中 ---")
         print("（Ctrl+C で終了）\n")

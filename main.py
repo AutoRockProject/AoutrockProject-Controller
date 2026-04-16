@@ -276,7 +276,7 @@ def listen_to_controller(pad, con_name):
                 elif event.code not in ("SYN_REPORT","ABS_RZ", "ABS_Z") and (event.state == 1 or event.state == 0) :
                     
                     # row[ ButtonName「イベントコード」] = state
-                    print(event.code)
+                    # print(event.code)
                     row[BUTTONNAME[event.code]] = event.state
 
                     continue

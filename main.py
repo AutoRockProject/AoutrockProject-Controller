@@ -1,4 +1,5 @@
 import inputs
+import videocapture
 import time
 import datetime
 import threading
@@ -22,6 +23,7 @@ AXIS_MAP = {
     # "ABS_RY": ("RightStick", "y"),
 }
 
+print("このデータのファイル名を入力してください")
 FILE = input() + ".csv"
 # 先にカラム（列）を固定
 FIELDNAMES = [
@@ -293,11 +295,14 @@ def listen_to_controller(pad, con_name):
 
 try:
     gamepads = inputs.devices.gamepads
+    stop_event = threading.Event()
+    capturethread = threading.Thread(target=videocapture.Startcapture, args=(stop_event,))
 
     if not gamepads:
         print("エラー: ゲームパッドが見つかりません。")
     else:
         print(f"{len(gamepads)}台のコントローラーが見つかりました:")
+        capturethread.start()
 
         threads = []
         con_names = {}
@@ -322,20 +327,25 @@ try:
             time.sleep(1)
 
 except KeyboardInterrupt:
+    stop_event.set()
+
+    # 終了待ち（重要）
+    capturethread.join()
+
     print("\nプログラムを終了します。")
 
 
-def on_exit():
+# def on_exit():
     
-    # 移動したいファイル（元の場所）
-    src = Path(r"C:\Users\22311\GitHub\AoutrockProject\output.csv")
+#     # 移動したいファイル（元の場所）
+#     src = Path(r"C:\Users\22311\GitHub\AoutrockProject\output.csv")
 
-    # 移動先フォルダ
-    saveDir =  Path(r"C:\Users\22311\GitHub\AoutrockProject\csvfiles")
+#     # 移動先フォルダ
+#     saveDir =  Path(r"C:\Users\22311\GitHub\AoutrockProject\csvfiles")
 
-    # 移動先フォルダが無ければ作る
-    # dst_dir.mkdir(parents=True, exist_ok=True)
+#     # 移動先フォルダが無ければ作る
+#     # dst_dir.mkdir(parents=True, exist_ok=True)
 
-    # 移動する（移動先は「フォルダ」を指定すればOK）
-    shutil.move(str(src), str(saveDir))
+#     # 移動する（移動先は「フォルダ」を指定すればOK）
+#     shutil.move(str(src), str(saveDir))
     

@@ -2,19 +2,19 @@ import videocapture
 import time
 import threading
 
-
-thread1 = threading.Thread(target=videocapture.Startcapture, args=())
-thread2 = threading.Thread(target=videocapture.Stopcapture, args=())
+stop_event = threading.Event()
+thread1 = threading.Thread(target=videocapture.Startcapture, args=(stop_event,))
 
 thread1.start()
 
-# time.sleep(3)
-print("thread2を開始")
-thread2.start()
 
+
+print("カウント開始")
+time.sleep(3)
+
+stop_event.set()
 # 終了待ち（重要）
-# thread1.join()
-thread2.join()
+thread1.join()
 
 print("全部終了")
 

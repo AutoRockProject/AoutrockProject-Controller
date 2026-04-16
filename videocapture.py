@@ -12,25 +12,23 @@ fps=15
 # 録画時間(秒)
 # rec_sec = 3
 
+i = 0
+
 # キャプチャー領域
 cap_region = (0,0, 1920, 1030)
 
 # キャプチャー画像を格納するリスト
 frames = []
 
-#終了フラグ
-iscapturing = True
-
-def Stopcapture(): 
-    iscapturing = False
-
-def Startcapture():
+def Startcapture(stop_event):
+    global i
 
     #画面をキャプチャーし
-    while(iscapturing):
+    while not stop_event.is_set():
         time.sleep(1)
-        i = 0
-        # i = i + 1
+        
+        i = i + 1
+        print(i)
     #     # 処理開始時間の取得
     #     start = time.perf_counter()
         

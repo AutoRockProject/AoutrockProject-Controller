@@ -23,8 +23,7 @@ AXIS_MAP = {
     # "ABS_RY": ("RightStick", "y"),
 }
 
-print("このデータのファイル名を入力してください")
-FILE = input() + ".csv"
+
 # 先にカラム（列）を固定
 FIELDNAMES = [
     "username", "Timestamp", "X", "Y", "B", "A", "RB", "LB", "RT", "LT","RStick", "LStick", "SELECT", "START",
@@ -159,7 +158,13 @@ def append_row(row: dict):
             latestrow.update(prev_filtered)
         
         
-        
+def get_ts():
+    elapsed = time.perf_counter()
+    m = int(elapsed // 60)
+    s = int(elapsed % 60)
+    us = int((elapsed - int(elapsed)) * 1_000_000)
+
+    return f"{m:02}:{s:02}.{us:06}"
 
 
 #git revert コミットのハッシュ値
@@ -193,7 +198,7 @@ def listen_to_controller(pad, con_name):
             
             for event in events:
                 
-                ts = datetime.datetime.fromtimestamp(event.timestamp)
+                # ts = datetime.datetime.fromtimestamp(event.timestamp)
                 # デバウンス用は float 秒
                 event_ts = event.timestamp
                 
@@ -282,7 +287,7 @@ def listen_to_controller(pad, con_name):
                     continue
 
             #ここにrowを追加する処理を書く
-            row["Timestamp"] = ts
+            row["Timestamp"] = get_ts()
             append_row(row)
             
                         
@@ -297,6 +302,9 @@ try:
     gamepads = inputs.devices.gamepads
     stop_event = threading.Event()
     capturethread = threading.Thread(target=videocapture.Startcapture, args=(stop_event,))
+
+    print("このデータのファイル名を入力してください")
+    FILE = input() + ".csv"
 
     if not gamepads:
         print("エラー: ゲームパッドが見つかりません。")

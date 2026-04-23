@@ -9,6 +9,11 @@ import atexit
 import shutil
 from pathlib import Path
 
+stop_event = threading.Event()
+capturethread = threading.Thread(target=videocapture.Startcapture, args=(stop_event,))
+#録画開始
+capturethread.start()
+
 
 # デバウンス閾値（秒）
 DEBOUNCE_THRESHOLD = 0.1  # 20 ms
@@ -170,7 +175,7 @@ def get_ts():
 #git revert コミットのハッシュ値
 def listen_to_controller(pad, con_name):
     """特定のコントローラを常時監視するスレッド関数"""
-    global hat_x, hat_y, ts, event_ts, ROWORIZIN
+    global hat_x, hat_y, ts, event_ts, ROWORIZIN, stop_event
 
     #"""特定のコントローラを常時監視するスレッド関数"""
     LastABS_R = False
@@ -300,8 +305,7 @@ def listen_to_controller(pad, con_name):
 
 try:
     gamepads = inputs.devices.gamepads
-    stop_event = threading.Event()
-    capturethread = threading.Thread(target=videocapture.Startcapture, args=(stop_event,))
+
 
     print("このデータのファイル名を入力してください")
     FILE = input() + ".csv"
@@ -310,7 +314,7 @@ try:
         print("エラー: ゲームパッドが見つかりません。")
     else:
         print(f"{len(gamepads)}台のコントローラーが見つかりました:")
-        capturethread.start()
+
 
         threads = []
         con_names = {}
@@ -347,6 +351,9 @@ except KeyboardInterrupt:
     
 #     # 移動したいファイル（元の場所）
 #     src = Path(r"C:\Users\22311\GitHub\AoutrockProject\output.csv")
+
+
+
 
 #     # 移動先フォルダ
 #     saveDir =  Path(r"C:\Users\22311\GitHub\AoutrockProject\csvfiles")

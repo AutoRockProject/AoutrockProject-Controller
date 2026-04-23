@@ -8,8 +8,6 @@ def get_ts():
     s = int(elapsed % 60)
     us = int((elapsed - int(elapsed)) * 1_000_000)
 
-    print(int((elapsed - int(elapsed))))
-    print((elapsed - int(elapsed)))
     return f"{m:02}:{s:02}.{us:06}"
 
 # # 使用例

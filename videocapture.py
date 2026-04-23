@@ -3,7 +3,7 @@ import pyautogui
 import cv2
 import numpy as np
 
-fps = 15
+fps = 60
 cap_region = (0, 0, 1920, 1030)
 
 def Startcapture(stop_event):

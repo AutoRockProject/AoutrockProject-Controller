@@ -1,4 +1,5 @@
 import inputs
+import obstextgui
 # import videocapture
 import time
 import datetime
@@ -19,6 +20,13 @@ ws = obsws(host, port, password)
 ws.connect()
 # 録画開始
 ws.call(requests.StartRecord())
+
+# スレッド制御用フラグ
+stop_event = threading.Event()
+
+# 画面録画にTSを入れるスレッド開始
+t = threading.Thread(target=obstextgui.writets, args=(stop_event,))
+t.start()
 
 # デバウンス閾値（秒）
 DEBOUNCE_THRESHOLD = 0.1  # 20 ms
@@ -349,6 +357,10 @@ except KeyboardInterrupt:
 
     ws.disconnect()
 
+    # スレッド停止
+    stop_event.set()
+    t.join()
+
     print("\nプログラムを終了します。")
 
 
@@ -367,5 +379,4 @@ except KeyboardInterrupt:
 #     # dst_dir.mkdir(parents=True, exist_ok=True)
 
 #     # 移動する（移動先は「フォルダ」を指定すればOK）
-#     shutil.move(str(src), str(saveDir))
-    
+#     shutil.move(str(src), str(saveDir)

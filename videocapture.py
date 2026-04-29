@@ -58,11 +58,11 @@ def Startcapture(stop_event):
     out.release()
     print("録画終了")
 
-def get_ts():
-    fps = cap.get(cv2.CAP_PROP_FPS)
-    frame_id = 0
+# def get_ts():
+#     fps = cap.get(cv2.CAP_PROP_FPS)
+#     frame_id = 0
 
-    ts = frame_id / fps
+#     ts = frame_id / fps
 
 
 

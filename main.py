@@ -1,5 +1,5 @@
 import inputs
-import videocapture
+# import videocapture
 import time
 import datetime
 import threading
@@ -9,11 +9,16 @@ import atexit
 import shutil
 from pathlib import Path
 
-stop_event = threading.Event()
-capturethread = threading.Thread(target=videocapture.Startcapture, args=(stop_event,))
-#録画開始
-capturethread.start()
+from obswebsocket import obsws, requests
 
+host = "localhost"
+port = 4455
+password = "31U1iYQEwXHkOCWH"  # OBSで設定したもの
+
+ws = obsws(host, port, password)
+ws.connect()
+# 録画開始
+ws.call(requests.StartRecord())
 
 # デバウンス閾値（秒）
 DEBOUNCE_THRESHOLD = 0.1  # 20 ms
@@ -339,10 +344,10 @@ try:
             time.sleep(1)
 
 except KeyboardInterrupt:
-    stop_event.set()
+    # 録画停止
+    ws.call(requests.StopRecord())
 
-    # 終了待ち（重要）
-    capturethread.join()
+    ws.disconnect()
 
     print("\nプログラムを終了します。")
 

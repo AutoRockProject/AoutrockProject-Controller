@@ -14,7 +14,9 @@ from obswebsocket import obsws, requests
 
 host = "localhost"
 port = 4455
-password = "31U1iYQEwXHkOCWH"  # OBSで設定したもの
+password = "31U1iYQEwXHkOCWH"  # ゼミ室
+password = "w9cUMDfNKHi3N63L"  # OBSで設定したもの
+
 
 ws = obsws(host, port, password)
 ws.connect()
@@ -25,8 +27,8 @@ ws.call(requests.StartRecord())
 stop_event = threading.Event()
 
 # 画面録画にTSを入れるスレッド開始
-t = threading.Thread(target=obstextgui.writets, args=(stop_event,))
-t.start()
+thread = threading.Thread(target=obstextgui.writets, args=(stop_event,), daemon=True)
+thread.start()
 
 # デバウンス閾値（秒）
 DEBOUNCE_THRESHOLD = 0.1  # 20 ms
@@ -177,12 +179,7 @@ def append_row(row: dict):
         
         
 def get_ts():
-    elapsed = time.perf_counter()
-    m = int(elapsed // 60)
-    s = int(elapsed % 60)
-    us = int((elapsed - int(elapsed)) * 1_000_000)
-
-    return f"{m:02}:{s:02}.{us:06}"
+    return obstextgui.get_ts()
 
 
 #git revert コミットのハッシュ値
@@ -325,6 +322,10 @@ try:
 
     if not gamepads:
         print("エラー: ゲームパッドが見つかりません。")
+        ws.call(requests.StopRecord())
+        ws.disconnect()
+        stop_event.set()
+        raise SystemExit(1)
     else:
         print(f"{len(gamepads)}台のコントローラーが見つかりました:")
 
@@ -354,12 +355,11 @@ try:
 except KeyboardInterrupt:
     # 録画停止
     ws.call(requests.StopRecord())
-
     ws.disconnect()
 
-    # スレッド停止
+    # writets スレッドを止める（ゲームパッドスレッドは daemon なので自動終了）
     stop_event.set()
-    t.join()
+    thread.join()
 
     print("\nプログラムを終了します。")
 

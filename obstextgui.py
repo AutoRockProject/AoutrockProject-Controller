@@ -1,19 +1,26 @@
 import time
-from main import get_ts
-from datetime import datetime
+
+
+# スクリプト読み込み時に記録（＝実質スタート時刻）
+START_TIME = time.perf_counter()
+
+def get_ts():
+    elapsed = time.perf_counter() - START_TIME
+    m = int(elapsed // 60)
+    s = int(elapsed % 60)
+    us = int((elapsed - int(elapsed)) * 1_000_000)
+    return f"{m:02}:{s:02}.{us:06}"
 
 
 def writets(stop_event):
-    # --- 初期化（ここでファイルを空にする） ---
-    with open("timestamp.txt", "w") as f:
-        f.write("")  # ← これで中身クリア
 
-    # --- 追記モードで開く ---
-    with open("timestamp.txt", "a") as f:
+    with open("timestamp.txt", "w") as f:
         while not stop_event.is_set():
-            now = main.get_ts()
-            f.seek(0)           # 常に先頭に書く（上書きしたい場合）
+            now = get_ts()
+
+            f.seek(0)
             f.write(now)
-            f.truncate()        # 古い内容を消す
-            f.flush()           # 即反映（OBS用に重要）
-            time.sleep(0.01)    # 100Hz更新
+            f.truncate()
+            f.flush()
+
+            time.sleep(0.016)

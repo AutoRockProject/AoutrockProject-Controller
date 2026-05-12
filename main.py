@@ -358,8 +358,16 @@ try:
     gamepads = inputs.devices.gamepads
 
 
-    print("このデータのファイル名を入力してください")
-    FILE = input() + ".csv"
+    print("名前を入力してください（例: 田中 山田）")
+    names_input = input().split()
+    name1 = names_input[0]
+    name2 = names_input[1]
+
+    today = datetime.date.today().strftime("%Y%m%d")
+    date_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), today)
+    os.makedirs(date_dir, exist_ok=True)
+
+    FILE = os.path.join(date_dir, f"{name1} {name2} {today}.csv")
 
     # HTTPサーバーをバックグラウンドで起動
     http_thread = threading.Thread(target=_start_http_server, daemon=True)
@@ -376,9 +384,10 @@ try:
         threads = []
         con_names = {}
 
-        # 見つけた順に con1, con2... を割り当てる
+        # 見つけた順に name1, name2... を割り当てる
+        player_names = [name1, name2]
         for i, pad in enumerate(gamepads, start=1):
-            con_name = f"con{i}"
+            con_name = player_names[i - 1] if i <= len(player_names) else f"con{i}"
             con_names[pad] = con_name
             print(f"  {con_name}: {pad.name}")
 
@@ -408,8 +417,13 @@ except KeyboardInterrupt:
     # OBS 録画停止
     if obs_client is not None:
         try:
-            obs_client.stop_record()
+            resp = obs_client.stop_record()
             print("[OBS] 録画停止")
+            src = resp.output_path
+            ext = os.path.splitext(src)[1]
+            dst = os.path.splitext(FILE)[0] + ext
+            shutil.move(src, dst)
+            print(f"[OBS] 動画保存: {dst}")
         except Exception as e:
             print(f"[OBS] 録画停止失敗: {e}")
 

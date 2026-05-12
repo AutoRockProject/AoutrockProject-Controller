@@ -1,26 +1,57 @@
+import obspython as obs
 import time
+import os
 
+source_name = "Timestamp"
+START_TIME_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "start_time.txt")
 
-# スクリプト読み込み時に記録（＝実質スタート時刻）
-START_TIME = time.perf_counter()
+START_TIME = None
+_last_mtime = None
+
 
 def get_ts():
-    elapsed = time.perf_counter() - START_TIME
+    if START_TIME is None:
+        return "00:00.000000"
+    elapsed = time.time() - START_TIME
     m = int(elapsed // 60)
     s = int(elapsed % 60)
     us = int((elapsed - int(elapsed)) * 1_000_000)
     return f"{m:02}:{s:02}.{us:06}"
 
+def update_text():
+    global START_TIME, _last_mtime
 
-def writets(stop_event):
+    # start_time.txt が更新されたときだけ読み直す
+    try:
+        mtime = os.path.getmtime(START_TIME_FILE)
+        if mtime != _last_mtime:
+            with open(START_TIME_FILE, "r") as f:
+                START_TIME = float(f.read())
+            _last_mtime = mtime
+    except:
+        return
 
-    with open("timestamp.txt", "w") as f:
-        while not stop_event.is_set():
-            now = get_ts()
+    if START_TIME is None:
+        return
 
-            f.seek(0)
-            f.write(now)
-            f.truncate()
-            f.flush()
+    text = get_ts()
 
-            time.sleep(0.016)
+    source = obs.obs_get_source_by_name(source_name)
+    if source is not None:
+        print("kakikomi")
+        settings = obs.obs_data_create()
+        obs.obs_data_set_string(settings, "text", text)
+        obs.obs_source_update(source, settings)
+        obs.obs_data_release(settings)
+        obs.obs_source_release(source)
+
+
+def script_load(settings):
+    print("kidou")
+    obs.timer_add(update_text, 16)
+
+
+def script_unload():
+    obs.timer_remove(update_text)
+
+

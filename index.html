@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: transparent;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+  }
+  #ts {
+    font-family: "Courier New", monospace;
+    font-size: 48px;
+    font-weight: bold;
+    color: #ffffff;
+    text-shadow: 2px 2px 4px #000000;
+  }
+</style>
+</head>
+<body>
+  <div id="ts">00:00.000000</div>
+  <script>
+    const el = document.getElementById("ts");
+    let latestTs = "00:00.000000";
+    let fetching = false;
+
+    // Pythonから取得したtsを表示（CSVと同じ時計を参照）
+    async function fetchTs() {
+      if (fetching) return;
+      fetching = true;
+      try {
+        const res = await fetch("http://localhost:8080/ts");
+        const data = await res.json();
+        latestTs = data.ts;
+      } catch (e) {}
+      fetching = false;
+    }
+
+    function loop() {
+      el.textContent = latestTs;
+      requestAnimationFrame(loop);
+    }
+
+    // 描画は60fps、fetch は16msごとに非同期で投げる
+    setInterval(fetchTs, 16);
+    fetchTs();
+    requestAnimationFrame(loop);
+  </script>
+</body>
+</html>

@@ -16,10 +16,10 @@ import obsws_python as obs
 OBS_HOST     = "localhost"
 OBS_PORT     = 4455
 # OBSのWebSocket設定でパスワードを設定した場合はここに入力
-# #ゼミ
-# OBS_PASSWORD = ""  
-#家
-OBS_PASSWORD = "w9cUMDfNKHi3N63L"  
+#ゼミ
+OBS_PASSWORD = "31U1iYQEwXHkOCWH"  
+# #家
+# OBS_PASSWORD = "w9cUMDfNKHi3N63L"  
 
 
 # 録画開始時刻をファイルに書き込む（obstextgui.py と共有）

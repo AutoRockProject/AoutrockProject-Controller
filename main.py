@@ -407,6 +407,8 @@ try:
             obs_client = obs.ReqClient(host=OBS_HOST, port=OBS_PORT, password=OBS_PASSWORD)
             obs_client.start_record()
             print("[OBS] 録画開始")
+            obs_client.press_input_properties_button(input_name="ts", prop_name="refreshnocache")
+            print("[OBS] ブラウザソース再読み込み")
         except Exception as e:
             print(f"[OBS] 録画開始失敗（OBSが起動していないか、WebSocketが無効）: {e}")
 
@@ -422,8 +424,15 @@ except KeyboardInterrupt:
             src = resp.output_path
             ext = os.path.splitext(src)[1]
             dst = os.path.splitext(FILE)[0] + ext
-            shutil.move(src, dst)
-            print(f"[OBS] 動画保存: {dst}")
+            for _ in range(10):
+                try:
+                    shutil.move(src, dst)
+                    print(f"[OBS] 動画保存: {dst}")
+                    break
+                except PermissionError:
+                    time.sleep(1)
+            else:
+                print(f"[OBS] 動画の移動に失敗しました: {src}")
         except Exception as e:
             print(f"[OBS] 録画停止失敗: {e}")
 

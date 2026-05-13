@@ -367,7 +367,11 @@ try:
     date_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), today)
     os.makedirs(date_dir, exist_ok=True)
 
-    FILE = os.path.join(date_dir, f"{name1} {name2} {today}.csv")
+    base_name = f"{today}_{name1}_{name2}"
+    existing = len([f for f in os.listdir(date_dir)
+                    if f.startswith(base_name + "_") and f.endswith(".csv")])
+    count = existing + 1
+    FILE = os.path.join(date_dir, f"{base_name}_{count}.csv")
 
     # HTTPサーバーをバックグラウンドで起動
     http_thread = threading.Thread(target=_start_http_server, daemon=True)

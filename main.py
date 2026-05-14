@@ -420,6 +420,11 @@ try:
             time.sleep(1)
 
 except KeyboardInterrupt:
+    #ここにrowを追加する処理を書く
+    row = {}
+    row.update(ROWORIZIN)
+    row["Timestamp"] = get_ts()
+    append_row(row)
     # OBS 録画停止
     if obs_client is not None:
         try:

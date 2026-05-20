@@ -1,4 +1,5 @@
 import inputs
+# import videocapture
 import time
 import datetime
 import threading
@@ -6,8 +7,30 @@ import csv
 import os
 import atexit
 import shutil
+import json
 from pathlib import Path
+from http.server import HTTPServer, BaseHTTPRequestHandler
+import obsws_python as obs
 
+# OBS WebSocket 接続設定
+OBS_HOST     = "localhost"
+OBS_PORT     = 4455
+# OBSのWebSocket設定でパスワードを設定した場合はここに入力
+#ゼミ
+OBS_PASSWORD = "31U1iYQEwXHkOCWH"  
+# #家
+# OBS_PASSWORD = "w9cUMDfNKHi3N63L"  
+
+
+# 録画開始時刻をファイルに書き込む（obstextgui.py と共有）
+START_EPOCH = time.time()
+_PERF_START = time.perf_counter()  # 高精度タイマー（index.html 表示用）
+_START_TIME_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "start_time.txt")
+with open(_START_TIME_FILE, "w") as f:
+    f.write(str(START_EPOCH))
+
+_HTTP_PORT = 8080
+_HTML_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "index.html")
 
 # デバウンス閾値（秒）
 DEBOUNCE_THRESHOLD = 0.1  # 20 ms
@@ -22,10 +45,10 @@ AXIS_MAP = {
     # "ABS_RY": ("RightStick", "y"),
 }
 
-FILE = input() + ".csv"
+
 # 先にカラム（列）を固定
 FIELDNAMES = [
-    "username", "Timestamp", "X", "Y", "B", "A", "RB", "LB", "RT", "LT", "RStick", "LStick", "SELECT", "START",
+    "username", "Timestamp", "X", "Y", "B", "A", "RB", "LB", "RT", "LT","RStick", "LStick", "SELECT", "START",
     "CenterArrow", "UpArrow", "DownArrow", "LeftArrow", "RightArrow", "UpRightArrow", "UpLeftArrow", "DownRightArrow", "DownLeftArrow", 
     "Center", "Up", "Down", "Right", "Left", "UpRight", "UpLeft", "DownRight", "DownLeft", "StateX", "StateY",
     ]  
@@ -157,13 +180,18 @@ def append_row(row: dict):
             latestrow.update(prev_filtered)
         
         
-        
+def get_ts():
+    elapsed = time.perf_counter() - _PERF_START
+    m = int(elapsed // 60)
+    s = int(elapsed % 60)
+    us = int((elapsed - int(elapsed)) * 1_000_000)
+    return f"{m:02}:{s:02}.{us:06}"
 
 
 #git revert コミットのハッシュ値
 def listen_to_controller(pad, con_name):
     """特定のコントローラを常時監視するスレッド関数"""
-    global hat_x, hat_y, ts, event_ts, ROWORIZIN
+    global hat_x, hat_y, ts, event_ts, ROWORIZIN, stop_event
 
     #"""特定のコントローラを常時監視するスレッド関数"""
     LastABS_R = False
@@ -191,7 +219,7 @@ def listen_to_controller(pad, con_name):
             
             for event in events:
                 
-                ts = datetime.datetime.fromtimestamp(event.timestamp)
+                # ts = datetime.datetime.fromtimestamp(event.timestamp)
                 # デバウンス用は float 秒
                 event_ts = event.timestamp
                 
@@ -274,13 +302,13 @@ def listen_to_controller(pad, con_name):
                 elif event.code not in ("SYN_REPORT","ABS_RZ", "ABS_Z") and (event.state == 1 or event.state == 0) :
                     
                     # row[ ButtonName「イベントコード」] = state
-                    print(event.code)
+                    # print(event.code)
                     row[BUTTONNAME[event.code]] = event.state
 
                     continue
 
             #ここにrowを追加する処理を書く
-            row["Timestamp"] = ts
+            row["Timestamp"] = get_ts()
             append_row(row)
             
                         
@@ -291,20 +319,79 @@ def listen_to_controller(pad, con_name):
             print(f"{con_name} ({pad.name}) 読み取りエラー: {e}")
             # time.sleep(0.1)
 
+class _TSHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        if self.path == "/ts":
+            body = json.dumps({"ts": get_ts()}).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(body)
+        elif self.path in ("/", "/index.html"):
+            try:
+                with open(_HTML_FILE, "r", encoding="utf-8") as f:
+                    html = f.read()
+                html = html.replace("{{START_EPOCH_MS}}", str(int(START_EPOCH * 1000)))
+                body = html.encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(body)
+            except FileNotFoundError:
+                self.send_error(404)
+        else:
+            self.send_error(404)
+
+    def log_message(self, _fmt, *_args):
+        pass  # HTTPログを抑制
+
+
+def _start_http_server():
+    server = HTTPServer(("localhost", _HTTP_PORT), _TSHandler)
+    server.serve_forever()
+
+
+obs_client = None
+
 try:
     gamepads = inputs.devices.gamepads
 
+
+    print("名前を入力してください（例: 田中 山田）")
+    names_input = input().split()
+    name1 = names_input[0]
+    name2 = names_input[1]
+
+    today = datetime.date.today().strftime("%Y%m%d")
+    date_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), today)
+    os.makedirs(date_dir, exist_ok=True)
+
+    base_name = f"{today}_{name1}_{name2}"
+    existing = len([f for f in os.listdir(date_dir)
+                    if f.startswith(base_name + "_") and f.endswith(".csv")])
+    count = existing + 1
+    FILE = os.path.join(date_dir, f"{base_name}_{count}.csv")
+
+    # HTTPサーバーをバックグラウンドで起動
+    http_thread = threading.Thread(target=_start_http_server, daemon=True)
+    http_thread.start()
+    print(f"[HTTPサーバー起動] http://localhost:{_HTTP_PORT}/")
+
     if not gamepads:
         print("エラー: ゲームパッドが見つかりません。")
+        raise SystemExit(1)
     else:
         print(f"{len(gamepads)}台のコントローラーが見つかりました:")
+
 
         threads = []
         con_names = {}
 
-        # 見つけた順に con1, con2... を割り当てる
+        # 見つけた順に name1, name2... を割り当てる
+        player_names = [name1, name2]
         for i, pad in enumerate(gamepads, start=1):
-            con_name = f"con{i}"
+            con_name = player_names[i - 1] if i <= len(player_names) else f"con{i}"
             con_names[pad] = con_name
             print(f"  {con_name}: {pad.name}")
 
@@ -312,28 +399,50 @@ try:
             t = threading.Thread(target=listen_to_controller, args=(pad, con_name), daemon=True)
             t.start()
             threads.append(t)
+        
+        
 
         print("\n--- すべてのコントローラからの入力を監視中 ---")
         print("（Ctrl+C で終了）\n")
+
+        # OBS 録画開始
+        obs_client = None
+        try:
+            obs_client = obs.ReqClient(host=OBS_HOST, port=OBS_PORT, password=OBS_PASSWORD)
+            obs_client.start_record()
+            print("[OBS] 録画開始")
+            obs_client.press_input_properties_button(input_name="ts", prop_name="refreshnocache")
+            print("[OBS] ブラウザソース再読み込み")
+        except Exception as e:
+            print(f"[OBS] 録画開始失敗（OBSが起動していないか、WebSocketが無効）: {e}")
 
         while True:
             time.sleep(1)
 
 except KeyboardInterrupt:
+    #ここにrowを追加する処理を書く
+    row = {}
+    row.update(ROWORIZIN)
+    row["Timestamp"] = get_ts()
+    append_row(row)
+    # OBS 録画停止
+    if obs_client is not None:
+        try:
+            resp = obs_client.stop_record()
+            print("[OBS] 録画停止")
+            src = resp.output_path
+            ext = os.path.splitext(src)[1]
+            dst = os.path.splitext(FILE)[0] + ext
+            for _ in range(10):
+                try:
+                    shutil.move(src, dst)
+                    print(f"[OBS] 動画保存: {dst}")
+                    break
+                except PermissionError:
+                    time.sleep(1)
+            else:
+                print(f"[OBS] 動画の移動に失敗しました: {src}")
+        except Exception as e:
+            print(f"[OBS] 録画停止失敗: {e}")
+
     print("\nプログラムを終了します。")
-
-
-def on_exit():
-    
-    # 移動したいファイル（元の場所）
-    src = Path(r"C:\Users\22311\GitHub\AoutrockProject\output.csv")
-
-    # 移動先フォルダ
-    saveDir =  Path(r"C:\Users\22311\GitHub\AoutrockProject\csvfiles")
-
-    # 移動先フォルダが無ければ作る
-    # dst_dir.mkdir(parents=True, exist_ok=True)
-
-    # 移動する（移動先は「フォルダ」を指定すればOK）
-    shutil.move(str(src), str(saveDir))
-    

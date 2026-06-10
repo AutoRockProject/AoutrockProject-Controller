@@ -1,0 +1,53 @@
+{
+  "timestamp": "20260610_064628",
+  "overall_test_accuracy": 0.30928109766860834,
+  "train_samples": 703672,
+  "test_samples": 703672,
+  "feature_columns": [
+    "B",
+    "RT",
+    "Up",
+    "A",
+    "standing_right",
+    "Down",
+    "RB",
+    "body_right",
+    "DownRight",
+    "UpLeft",
+    "UpRight",
+    "LT",
+    "Right",
+    "body_left",
+    "DownLeft"
+  ],
+  "per_user_accuracy": {
+    "akira": {
+      "accuracy": 0.00020490834292199298,
+      "test_samples": 63443
+    },
+    "jin": {
+      "accuracy": 0.5229411388150946,
+      "test_samples": 124972
+    },
+    "keita": {
+      "accuracy": 0.17970254552388215,
+      "test_samples": 104890
+    },
+    "kotaro": {
+      "accuracy": 0.5273435071797103,
+      "test_samples": 128696
+    },
+    "nakamura": {
+      "accuracy": 0.008164058703469725,
+      "test_samples": 30867
+    },
+    "ryo": {
+      "accuracy": 0.2832595653533755,
+      "test_samples": 105511
+    },
+    "yamaguti": {
+      "accuracy": 0.0,
+      "test_samples": 30797
+    }
+  }
+}

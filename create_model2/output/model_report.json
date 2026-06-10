@@ -1,0 +1,148 @@
+{
+  "model_feature_importance": [
+    {
+      "feature": "B",
+      "importance": 0.2622993160057289
+    },
+    {
+      "feature": "RT",
+      "importance": 0.11700054208354391
+    },
+    {
+      "feature": "Up",
+      "importance": 0.08274696118290197
+    },
+    {
+      "feature": "A",
+      "importance": 0.07248723848682073
+    },
+    {
+      "feature": "standing_right",
+      "importance": 0.06300020211257228
+    },
+    {
+      "feature": "Down",
+      "importance": 0.056704701298761186
+    },
+    {
+      "feature": "RB",
+      "importance": 0.05075422488071414
+    },
+    {
+      "feature": "body_right",
+      "importance": 0.049929541589442614
+    },
+    {
+      "feature": "DownRight",
+      "importance": 0.04207187932970028
+    },
+    {
+      "feature": "UpLeft",
+      "importance": 0.039086460306424
+    },
+    {
+      "feature": "UpRight",
+      "importance": 0.03691765698556906
+    },
+    {
+      "feature": "LT",
+      "importance": 0.036028838763424824
+    },
+    {
+      "feature": "Right",
+      "importance": 0.03513490090000032
+    },
+    {
+      "feature": "body_left",
+      "importance": 0.027589175754948597
+    },
+    {
+      "feature": "DownLeft",
+      "importance": 0.00785541665566865
+    },
+    {
+      "feature": "Left",
+      "importance": 0.007248879382520778
+    },
+    {
+      "feature": "Right_Kick",
+      "importance": 0.006999972250322246
+    },
+    {
+      "feature": "standing_left",
+      "importance": 0.003584638139040952
+    },
+    {
+      "feature": "LB",
+      "importance": 0.0019615202582549153
+    },
+    {
+      "feature": "Jump_Punch",
+      "importance": 0.00059793363363964
+    },
+    {
+      "feature": "SELECT",
+      "importance": 0.0
+    },
+    {
+      "feature": "START",
+      "importance": 0.0
+    },
+    {
+      "feature": "Left_Jump",
+      "importance": 0.0
+    },
+    {
+      "feature": "Right_Jump",
+      "importance": 0.0
+    },
+    {
+      "feature": "Left_Kick",
+      "importance": 0.0
+    },
+    {
+      "feature": "Punch_Kick",
+      "importance": 0.0
+    },
+    {
+      "feature": "Shoryuken",
+      "importance": 0.0
+    },
+    {
+      "feature": "Hadoken",
+      "importance": 0.0
+    }
+  ],
+  "per_user_accuracy": {
+    "akira": {
+      "accuracy": 0.00020490834292199298,
+      "test_samples": 63443
+    },
+    "jin": {
+      "accuracy": 0.5229411388150946,
+      "test_samples": 124972
+    },
+    "keita": {
+      "accuracy": 0.17970254552388215,
+      "test_samples": 104890
+    },
+    "kotaro": {
+      "accuracy": 0.5273435071797103,
+      "test_samples": 128696
+    },
+    "nakamura": {
+      "accuracy": 0.008164058703469725,
+      "test_samples": 30867
+    },
+    "ryo": {
+      "accuracy": 0.2832595653533755,
+      "test_samples": 105511
+    },
+    "yamaguti": {
+      "accuracy": 0.0,
+      "test_samples": 30797
+    }
+  },
+  "overall_accuracy": 0.30928109766860834,
+  "timestamp": "20260610_064628"
+}

@@ -206,3 +206,4 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 create_model/output/all_features.csv
+create_model2/output/all_features.csv

@@ -357,6 +357,20 @@ obs_client = None
 try:
     gamepads = inputs.devices.gamepads
 
+    # HTTPサーバーをバックグラウンドで起動（スクリプト起動時）
+    http_thread = threading.Thread(target=_start_http_server, daemon=True)
+    http_thread.start()
+    print(f"[HTTPサーバー起動] http://localhost:{_HTTP_PORT}/")
+
+    # OBS 録画開始（スクリプト起動時）
+    try:
+        obs_client = obs.ReqClient(host=OBS_HOST, port=OBS_PORT, password=OBS_PASSWORD)
+        obs_client.start_record()
+        print("[OBS] 録画開始")
+        obs_client.press_input_properties_button(input_name="ts", prop_name="refreshnocache")
+        print("[OBS] ブラウザソース再読み込み")
+    except Exception as e:
+        print(f"[OBS] 録画開始失敗（OBSが起動していないか、WebSocketが無効）: {e}")
 
     print("名前を入力してください（例: 田中 山田）")
     names_input = input().split()
@@ -372,11 +386,6 @@ try:
                     if f.startswith(base_name + "_") and f.endswith(".csv")])
     count = existing + 1
     FILE = os.path.join(date_dir, f"{base_name}_{count}.csv")
-
-    # HTTPサーバーをバックグラウンドで起動
-    http_thread = threading.Thread(target=_start_http_server, daemon=True)
-    http_thread.start()
-    print(f"[HTTPサーバー起動] http://localhost:{_HTTP_PORT}/")
 
     if not gamepads:
         print("エラー: ゲームパッドが見つかりません。")
@@ -400,21 +409,10 @@ try:
             t.start()
             threads.append(t)
         
-        
+
 
         print("\n--- すべてのコントローラからの入力を監視中 ---")
         print("（Ctrl+C で終了）\n")
-
-        # OBS 録画開始
-        obs_client = None
-        try:
-            obs_client = obs.ReqClient(host=OBS_HOST, port=OBS_PORT, password=OBS_PASSWORD)
-            obs_client.start_record()
-            print("[OBS] 録画開始")
-            obs_client.press_input_properties_button(input_name="ts", prop_name="refreshnocache")
-            print("[OBS] ブラウザソース再読み込み")
-        except Exception as e:
-            print(f"[OBS] 録画開始失敗（OBSが起動していないか、WebSocketが無効）: {e}")
 
         while True:
             time.sleep(1)

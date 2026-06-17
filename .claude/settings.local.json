@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(pip install *)"
+      "Bash(pip install *)",
+      "PowerShell(.venv\\\\Scripts\\\\python.exe calcDistance.py 20260513 2>&1)",
+      "PowerShell(.venv\\\\Scripts\\\\python.exe _run_manual.py 2>&1)"
     ]
   }
 }

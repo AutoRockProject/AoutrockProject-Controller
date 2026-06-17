@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Visualize button input timeline for each user
-Shows how buttons are pressed over time for each main user
+Shows button press patterns across all users in a single comprehensive visualization
 """
 
 import pandas as pd
@@ -9,7 +9,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
 import os
-from pathlib import Path
+from io import BytesIO
+import base64
 
 # Define main users
 MAIN_USERS = ['jin', 'keita', 'kotaro', 'akira', 'ryo', 'nakamura', 'yamaguti']
@@ -29,178 +30,83 @@ def load_data():
     df = pd.read_csv(features_path)
     return df
 
-def create_timeline_heatmap(df, user):
-    """Create heatmap showing button presses over time for a user"""
-    user_data = df[df['user'] == user].copy()
+def create_comprehensive_visualization(df):
+    """Create a single comprehensive visualization showing all users' button patterns"""
 
-    if len(user_data) == 0:
-        print(f"  Warning: No data for user {user}")
-        return None
-
-    # Select button columns
-    available_cols = [col for col in BUTTON_COLS if col in user_data.columns]
-    button_data = user_data[available_cols].iloc[:500]  # Sample first 500 frames
-
-    # Create figure
-    fig, ax = plt.subplots(figsize=(14, 8))
-
-    # Create heatmap
-    sns.heatmap(button_data.T, cmap='YlOrRd', cbar_kws={'label': 'Button Press'},
-                ax=ax, xticklabels=50, yticklabels=True)
-
-    ax.set_title(f'Button Input Timeline - {user.upper()} (First 500 frames)', fontsize=14, fontweight='bold')
-    ax.set_xlabel('Frame Number', fontsize=12)
-    ax.set_ylabel('Button', fontsize=12)
-
-    plt.tight_layout()
-    return fig
-
-def create_button_frequency(df, user):
-    """Create bar chart showing button press frequency"""
-    user_data = df[df['user'] == user].copy()
-
-    if len(user_data) == 0:
-        return None
-
-    available_cols = [col for col in BUTTON_COLS if col in user_data.columns]
-
-    # Calculate frequency
-    frequencies = user_data[available_cols].sum().sort_values(ascending=False)
-    frequencies = frequencies[frequencies > 0]  # Only show used buttons
-
-    # Create figure
-    fig, ax = plt.subplots(figsize=(12, 6))
-
-    colors = plt.cm.Set3(np.linspace(0, 1, len(frequencies)))
-    ax.bar(range(len(frequencies)), frequencies.values, color=colors)
-    ax.set_xticks(range(len(frequencies)))
-    ax.set_xticklabels(frequencies.index, rotation=45, ha='right')
-
-    ax.set_title(f'Button Press Frequency - {user.upper()}', fontsize=14, fontweight='bold')
-    ax.set_ylabel('Total Presses', fontsize=12)
-    ax.set_xlabel('Button', fontsize=12)
-
-    plt.tight_layout()
-    return fig
-
-def create_combo_frequency(df, user):
-    """Create visualization of button combinations"""
-    user_data = df[df['user'] == user].copy()
-
-    if len(user_data) == 0:
-        return None
-
-    combo_cols = ['Right_Jump', 'Left_Jump', 'Right_Kick', 'Left_Kick',
-                  'Punch_Kick', 'Jump_Punch', 'Shoryuken', 'Hadoken']
-    available_combos = [col for col in combo_cols if col in user_data.columns]
-
-    combos = user_data[available_combos].sum()
-    combos = combos[combos > 0]
-
-    if len(combos) == 0:
-        return None
-
-    # Create figure
-    fig, ax = plt.subplots(figsize=(10, 6))
-
-    colors = plt.cm.Spectral(np.linspace(0, 1, len(combos)))
-    ax.bar(range(len(combos)), combos.values, color=colors)
-    ax.set_xticks(range(len(combos)))
-    ax.set_xticklabels(combos.index, rotation=45, ha='right')
-
-    ax.set_title(f'Button Combination Frequency - {user.upper()}', fontsize=14, fontweight='bold')
-    ax.set_ylabel('Total Times Used', fontsize=12)
-    ax.set_xlabel('Combination', fontsize=12)
-
-    plt.tight_layout()
-    return fig
-
-def create_comparison_heatmap(df):
-    """Create comparison heatmap for all users"""
-    fig, axes = plt.subplots(len(MAIN_USERS), 1, figsize=(14, 3*len(MAIN_USERS)))
-
-    if len(MAIN_USERS) == 1:
-        axes = [axes]
-
+    # Prepare data for heatmap: users x buttons (frequency)
     available_cols = [col for col in BUTTON_COLS if col in df.columns]
 
-    for idx, user in enumerate(MAIN_USERS):
-        user_data = df[df['user'] == user].copy()
+    user_button_data = []
+    for user in MAIN_USERS:
+        user_data = df[df['user'] == user]
+        if len(user_data) > 0:
+            frequencies = user_data[available_cols].sum()
+            user_button_data.append(frequencies)
+        else:
+            user_button_data.append(pd.Series(0, index=available_cols))
 
-        if len(user_data) == 0:
-            axes[idx].text(0.5, 0.5, f'No data for {user}',
-                          ha='center', va='center', fontsize=12)
-            axes[idx].axis('off')
-            continue
+    # Create DataFrame for heatmap
+    heatmap_df = pd.DataFrame(user_button_data, index=MAIN_USERS)
 
-        button_data = user_data[available_cols].iloc[:300]
+    # Create figure with subplots
+    fig = plt.figure(figsize=(16, 10))
+    gs = fig.add_gridspec(2, 2, hspace=0.3, wspace=0.3)
 
-        sns.heatmap(button_data.T, cmap='YlOrRd', cbar=False,
-                   ax=axes[idx], xticklabels=50, yticklabels=True)
-        axes[idx].set_title(f'{user.upper()}', fontsize=12, fontweight='bold')
-        axes[idx].set_ylabel('Button', fontsize=10)
+    # 1. Heatmap of button frequencies
+    ax1 = fig.add_subplot(gs[0, :])
+    sns.heatmap(heatmap_df, annot=True, fmt='.0f', cmap='YlOrRd',
+                cbar_kws={'label': 'Total Presses'}, ax=ax1, linewidths=0.5)
+    ax1.set_title('Button Press Frequency by User', fontsize=14, fontweight='bold', pad=15)
+    ax1.set_ylabel('User', fontsize=11)
+    ax1.set_xlabel('Button', fontsize=11)
 
-        if idx == len(MAIN_USERS) - 1:
-            axes[idx].set_xlabel('Frame Number', fontsize=10)
+    # 2. Total button presses per user
+    ax2 = fig.add_subplot(gs[1, 0])
+    total_presses = heatmap_df.sum(axis=1).sort_values(ascending=False)
+    colors = plt.cm.viridis(np.linspace(0, 1, len(total_presses)))
+    ax2.barh(range(len(total_presses)), total_presses.values, color=colors)
+    ax2.set_yticks(range(len(total_presses)))
+    ax2.set_yticklabels(total_presses.index)
+    ax2.set_xlabel('Total Button Presses', fontsize=11)
+    ax2.set_title('Total Activity per User', fontsize=12, fontweight='bold')
+    ax2.grid(axis='x', alpha=0.3)
 
-    plt.tight_layout()
+    # 3. Top buttons overall
+    ax3 = fig.add_subplot(gs[1, 1])
+    top_buttons = heatmap_df.sum(axis=0).sort_values(ascending=False).head(10)
+    colors = plt.cm.plasma(np.linspace(0, 1, len(top_buttons)))
+    ax3.bar(range(len(top_buttons)), top_buttons.values, color=colors)
+    ax3.set_xticks(range(len(top_buttons)))
+    ax3.set_xticklabels(top_buttons.index, rotation=45, ha='right')
+    ax3.set_ylabel('Total Presses', fontsize=11)
+    ax3.set_title('Top 10 Most Used Buttons', fontsize=12, fontweight='bold')
+    ax3.grid(axis='y', alpha=0.3)
+
+    plt.suptitle('Fighting Game Button Input Analysis - All Users',
+                 fontsize=16, fontweight='bold', y=0.995)
+
     return fig
 
 def main():
     print("Loading feature data...")
     df = load_data()
 
-    print(f"Loaded {len(df)} records")
-    print(f"Users in data: {sorted(df['user'].unique())}\n")
+    print(f"✓ Loaded {len(df):,} records")
+    print(f"✓ Users in data: {sorted(df['user'].unique())}\n")
 
-    output_dir = 'create_model2/output/visualizations'
-    os.makedirs(output_dir, exist_ok=True)
+    print("Creating comprehensive visualization...")
+    fig = create_comprehensive_visualization(df)
 
-    # Create individual visualizations for each user
-    print("Creating individual user visualizations...")
-    for user in MAIN_USERS:
-        user_count = (df['user'] == user).sum()
-        if user_count == 0:
-            print(f"  Skipping {user} (no data)")
-            continue
-
-        print(f"  Processing {user} ({user_count:,} records)")
-
-        # Timeline heatmap
-        fig = create_timeline_heatmap(df, user)
-        if fig:
-            fig.savefig(f'{output_dir}/{user}_timeline_heatmap.png', dpi=100, bbox_inches='tight')
-            plt.close(fig)
-            print(f"    ✓ Saved timeline heatmap")
-
-        # Frequency chart
-        fig = create_button_frequency(df, user)
-        if fig:
-            fig.savefig(f'{output_dir}/{user}_button_frequency.png', dpi=100, bbox_inches='tight')
-            plt.close(fig)
-            print(f"    ✓ Saved frequency chart")
-
-        # Combo frequency
-        fig = create_combo_frequency(df, user)
-        if fig:
-            fig.savefig(f'{output_dir}/{user}_combo_frequency.png', dpi=100, bbox_inches='tight')
-            plt.close(fig)
-            print(f"    ✓ Saved combo frequency chart")
-
-    # Create comparison visualization
-    print("\nCreating comparison visualization...")
-    fig = create_comparison_heatmap(df)
-    fig.savefig(f'{output_dir}/all_users_comparison.png', dpi=100, bbox_inches='tight')
+    # Convert to image in memory
+    buffer = BytesIO()
+    fig.savefig(buffer, format='png', dpi=100, bbox_inches='tight')
+    buffer.seek(0)
     plt.close(fig)
-    print("✓ Saved comparison heatmap")
 
-    print(f"\n✅ All visualizations saved to: {output_dir}")
-    print(f"Generated files:")
-    for file in sorted(os.listdir(output_dir)):
-        file_path = os.path.join(output_dir, file)
-        if os.path.isfile(file_path):
-            size = os.path.getsize(file_path) / 1024
-            print(f"  - {file} ({size:.1f} KB)")
+    print("✅ Visualization created successfully!")
+    print(f"   Image size: {buffer.getbuffer().nbytes / 1024:.1f} KB")
+
+    return buffer
 
 if __name__ == '__main__':
-    main()
+    buffer = main()

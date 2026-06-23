@@ -49,7 +49,7 @@ MIN_AREA = 800
 TIME_TOLERANCE = 0.017
 
 # 欠損補完の閾値（フレーム数）
-# この値以下の連続欠損 → 前回値で補完（interpolated=True）
+# この値以下の連続欠損 → 前回値で補完（interpolated=1）
 # この値を超える連続欠損 → Noneのまま記録（戦闘中か否かはgamestartandKOtiming.csvで判定）
 INTERPOLATE_MAX_FRAMES = 10
 
@@ -185,7 +185,7 @@ def extract_distance_log(video_path):
                 "1P_pos":       f"({ryu_center[0]}, {ryu_center[1]})",
                 "2P_pos":       f"({ken_center[0]}, {ken_center[1]})",
                 "distance_px":  round(distance, 1),
-                "interpolated": False,
+                "interpolated": 0,
             })
         elif records:
             missing_count += 1
@@ -193,7 +193,7 @@ def extract_distance_log(video_path):
                 # 閾値以内 → 前回値で補完
                 prev = records[-1].copy()
                 prev["time_sec"]     = time_sec
-                prev["interpolated"] = True
+                prev["interpolated"] = 1
                 records.append(prev)
             else:
                 # 閾値超え → Noneのまま記録
@@ -210,7 +210,9 @@ def extract_distance_log(video_path):
             print(f"  {frame_no} / {total_frames} フレーム処理済み")
 
     cap.release()
-    return pd.DataFrame(records), fps
+    dist_df = pd.DataFrame(records)
+    dist_df["interpolated"] = dist_df["interpolated"].astype("Int64")
+    return dist_df, fps
 
 
 def process(video_path, csv_path, match_info):

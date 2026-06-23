@@ -19,7 +19,6 @@
 """
 
 import argparse
-import re
 import cv2
 import numpy as np
 import pandas as pd
@@ -81,15 +80,19 @@ def parse_timestamp(val):
         return float("nan")
 
 
-def load_combat_windows(timing_csv_path):
-    """gamestartandKOtiming.csv を読み込み、{filename: [(start_sec, end_sec), ...]} を返す。
+def load_match_info(timing_csv_path):
+    """gamestartandKOtiming.csv を読み込み、{filename: {...}} を返す。
 
-    戦闘区間は [gamestarttime, KOstart1), [KOend1, KOstart2), [KOend2, KOstart3) の順に
-    構築し、対応する開始値（KOstartN）がNaNになった時点でその試合の区間構築を打ち切る
-    （KOendが無いのは、そのKOで試合が終了したことを意味する）。
+    各試合の情報：
+      windows         : 戦闘区間 [(start_sec, end_sec), ...]
+                        [gamestarttime, KOstart1), [KOend1, KOstart2), [KOend2, KOstart3) の順に
+                        構築し、対応する開始値（KOstartN）がNaNになった時点で打ち切る
+                        （KOendが無いのは、そのKOで試合が終了したことを意味する）
+      offset_timestamp: 動画開始オフセット検出用、drop地点フレームのoverlayタイムスタンプ（秒）
+      offset_frame    : drop地点フレームの番号（動画の最初のフレームを1とした連番）
     """
     timing_df = pd.read_csv(timing_csv_path)
-    windows_by_file = {}
+    info_by_file = {}
     ko_start_cols = ["KOstart1", "KOstart2", "KOstart3"]
     ko_end_cols   = ["KOend1", "KOend2"]
 
@@ -107,9 +110,14 @@ def load_combat_windows(timing_csv_path):
             if np.isnan(ko_end):
                 break
             start = ko_end
-        windows_by_file[row["filename"]] = windows
 
-    return windows_by_file
+        info_by_file[row["filename"]] = {
+            "windows":          windows,
+            "offset_timestamp": parse_timestamp(row["offset_timestamp"]),
+            "offset_frame":     float(row["offset_frame"]),
+        }
+
+    return info_by_file
 
 
 def in_combat_windows(t, windows):
@@ -130,75 +138,12 @@ def get_center(mask):
     return (x + w // 2, y + h // 2)
 
 
-def _ocr_timestamp(frame, reader):
-    """フレームからタイムスタンプ（秒）をOCRで読み取る。失敗時は None を返す。"""
-    results = reader.readtext(frame)
-    texts = [t.strip().replace(' ', '') for _, t, c in results if c > 0.5]
-
-    full_pat = re.compile(r'^\d{2}:\d{2}\.\d+$')
-    ms_pat   = re.compile(r'^\d{2}:\d{2}$')
-    us_pat   = re.compile(r'^\d{4,6}$')
-
-    for t in texts:
-        if full_pat.match(t):
-            val = parse_timestamp(t)
-            if not np.isnan(val):
-                return val
-
-    for i, t in enumerate(texts):
-        if ms_pat.match(t):
-            for j in (i + 1, i - 1):
-                if 0 <= j < len(texts) and us_pat.match(texts[j]):
-                    val = parse_timestamp(f"{t}.{texts[j]}")
-                    if not np.isnan(val):
-                        return val
-    return None
-
-
-def detect_start_offset(video_path, scan_frames=90):
-    """動画の最初のscan_framesフレームをスキャンして開始オフセット（秒）を返す。
-
-    OBSが録画開始した直後は旧セッションのタイムスタンプが残ることがある。
-    タイムスタンプ値が大きい値から小さい値に急落した直後のフレームを
-    新セッションの開始点として採用する。
-    急落がなければ検出した中で最小のタイムスタンプを返す。
-    easyocr 未インストール or 検出失敗時は None を返す。
-    """
-    try:
-        import easyocr
-        reader = easyocr.Reader(['en'], verbose=False)
-    except ImportError:
-        return None
-
-    cap = cv2.VideoCapture(video_path)
-    prev_ts = None
-    candidates = []
-
-    for _ in range(scan_frames):
-        ret, frame = cap.read()
-        if not ret:
-            break
-        ts = _ocr_timestamp(frame, reader)
-        if ts is None:
-            prev_ts = None
-            continue
-        # 前フレームより5秒以上小さくなった = タイムスタンプリセット（新セッション開始）
-        if prev_ts is not None and ts < prev_ts - 5.0:
-            cap.release()
-            return ts
-        prev_ts = ts
-        candidates.append(ts)
-
-    cap.release()
-    return min(candidates) if candidates else None
-
-
 def extract_distance_log(video_path):
-    """動画から距離ログをDataFrameとして返す"""
+    """動画から距離ログをDataFrameとして返す。戻り値は (DataFrame, fps)。"""
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
         print(f"  エラー: 動画を開けませんでした → {video_path}")
-        return None
+        return None, None
 
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     fps          = cap.get(cv2.CAP_PROP_FPS)
@@ -265,10 +210,10 @@ def extract_distance_log(video_path):
             print(f"  {frame_no} / {total_frames} フレーム処理済み")
 
     cap.release()
-    return pd.DataFrame(records)
+    return pd.DataFrame(records), fps
 
 
-def process(video_path, csv_path, combat_windows, video_offset=None):
+def process(video_path, csv_path, match_info):
     """動画から距離を計算してボタン入力CSVに追記・上書き保存する"""
     print(f"\n処理中: {os.path.basename(video_path)}")
 
@@ -298,7 +243,7 @@ def process(video_path, csv_path, combat_windows, video_offset=None):
     ts_sec = input_df[ts_col].apply(parse_timestamp).values
 
     # 動画から距離ログを取得
-    dist_df = extract_distance_log(video_path)
+    dist_df, fps = extract_distance_log(video_path)
     if dist_df is None or dist_df.empty:
         print(f"  エラー: 距離データの取得に失敗しました")
         return
@@ -309,18 +254,13 @@ def process(video_path, csv_path, combat_windows, video_offset=None):
     dist_df.to_csv(dist_csv_path, index=False)
     print(f"  距離ログ保存 → {os.path.basename(dist_csv_path)} ({len(dist_df)} 行)")
 
-    # 動画開始オフセット（秒）を決定してタイムスタンプをボタンCSV基準に変換
-    if video_offset is None:
-        video_offset = detect_start_offset(video_path)
-        if video_offset is None:
-            print("  警告: 動画開始オフセットを検出できませんでした")
-            print("  pip install easyocr でインストールするか --offset で手動指定してください")
-            video_offset = 0.0
-            print(f"  動画開始オフセット: {video_offset:.3f}秒（フォールバック）")
-        else:
-            print(f"  動画開始オフセット: {video_offset:.3f}秒")
-    else:
-        print(f"  動画開始オフセット: {video_offset:.3f}秒（手動指定）")
+    # 動画開始オフセット（秒）を計算: drop地点のoverlayタイムスタンプから
+    # drop地点フレームの動画内経過時間（offset_frame ÷ fps）を引き、
+    # 動画フレーム時間とボタンCSV基準時間の差分を求める
+    video_offset = match_info["offset_timestamp"] - match_info["offset_frame"] / fps
+    print(f"  動画開始オフセット: {video_offset:.3f}秒"
+          f"（drop地点: {match_info['offset_timestamp']:.3f}秒 / "
+          f"{match_info['offset_frame']:.0f}フレーム目, fps={fps:.1f}）")
 
     dist_time = dist_df["time_sec"].values + video_offset
 
@@ -335,7 +275,7 @@ def process(video_path, csv_path, combat_windows, video_offset=None):
             continue
 
         # 戦闘区間外（KO演出・待機画面）は記録しない
-        if not in_combat_windows(ts, combat_windows):
+        if not in_combat_windows(ts, match_info["windows"]):
             continue
 
         # 最も近いフレームのインデックスを取得
@@ -360,10 +300,6 @@ def main():
     parser = argparse.ArgumentParser(
         description="動画から距離を計算してボタン入力CSVに追記")
     parser.add_argument("target_dir", help="対象ディレクトリのパス")
-    parser.add_argument(
-        "--offset", type=float, default=None, metavar="SECONDS",
-        help="動画開始オフセット（秒）。省略時は動画の1フレーム目から自動検出。"
-             "全動画に同じ値が適用される。")
     args = parser.parse_args()
 
     target_dir = args.target_dir
@@ -377,7 +313,7 @@ def main():
     if not os.path.exists(timing_csv_path):
         print(f"エラー: {KO_TIMING_CSV_NAME} が見つかりません → {timing_csv_path}")
         sys.exit(1)
-    combat_windows_by_file = load_combat_windows(timing_csv_path)
+    match_info_by_file = load_match_info(timing_csv_path)
 
     # 同名の .mp4 と .csv のペアを探す
     mp4_files = [f for f in os.listdir(target_dir) if f.endswith(".mp4")]
@@ -398,10 +334,10 @@ def main():
     print(f"{len(pairs)} ペアを処理します。")
     for video_path, csv_path in pairs:
         name = os.path.splitext(os.path.basename(video_path))[0]
-        if name not in combat_windows_by_file:
+        if name not in match_info_by_file:
             print(f"スキップ: {name} は {KO_TIMING_CSV_NAME} に記録がありません")
             continue
-        process(video_path, csv_path, combat_windows_by_file[name], video_offset=args.offset)
+        process(video_path, csv_path, match_info_by_file[name])
 
     print("\n全ての処理が完了しました！")
 

@@ -208,3 +208,5 @@ __marimo__/
 create_model/output/all_features.csv
 create_model2/output/all_features.csv
 create_model2/output/visualizations/
+20260513/*.mp4
+20260513/**/*.mp4

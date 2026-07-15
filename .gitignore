@@ -208,3 +208,29 @@ __marimo__/
 create_model/output/all_features.csv
 create_model2/output/all_features.csv
 create_model2/output/visualizations/
+
+# 動画・大容量バイナリ（git管理外）
+*.mp4
+*.7z
+2026_1_7_対戦記録/
+2026_1_15_対戦記録/
+2026_1_20_対戦記録/
+コントローラー入力＆動画関連/
+結果/
+大キック動画.zip
+
+# 20260513 ローカルデータ（CSV・動画・モデル成果物はGit管理外）
+20260513/20260513_*.csv
+20260513/csv_data/
+20260513/2026_05_13対戦動画/
+20260513/output/
+20260513/Scripts/video_cache/
+20260513/data/clips/
+20260513/data/features.npz
+20260513/data/move_model/
+20260513/data/move_model_binary/
+20260513/data/player_model_v1/
+
+past
+past\create_model
+past\create_model2

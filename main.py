@@ -372,7 +372,7 @@ try:
     except Exception as e:
         print(f"[OBS] 録画開始失敗（OBSが起動していないか、WebSocketが無効）: {e}")
 
-    print("名前を入力してください（例: 田中 山田）")
+    print("名前を入力してください（例: 2P 1P）")
     names_input = input().split()
     name1 = names_input[0]
     name2 = names_input[1]
